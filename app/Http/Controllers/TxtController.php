@@ -3,15 +3,23 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+function diferenciaHoraReporte(string $time, string $day) : bool {
+    [$h,$m,$s] = explode(":", $time);
+    [$d,$mo,$y] = explode("/", $day);
+
+    $time = mktime(intval($h+3), intval($m), intval($s), intval($mo), intval($d), intval($y));
+    $timeDifference = (time() - $time) / 60; // Diferencia en minutos
+    return $timeDifference > 60; // Paso mas de una hora sin reportar
+}
 
 class TxtController extends Controller {
     public function parsearCompleto($carpeta) {
-        $general = file("http://relevar.com.ar/datos/riego/$carpeta/reportes/general.txt");
-        //$general = file("../general.txt");
+        $generalTxt = file("http://relevar.com.ar/datos/riego/$carpeta/reportes/general.txt");
+        //$generalTxt = file("../generalTxt.txt");
 
         $fullObj = (object) array();
 
-        foreach($general as &$data) {
+        foreach($generalTxt as &$data) {
             $data = explode(",", $data);
             if(!isset($data[1])) {
                 continue;
@@ -42,16 +50,7 @@ class TxtController extends Controller {
     }
 
     public function parsearGraficos($carpeta) {
-        $general = file("http://relevar.com.ar/datos/riego/$carpeta/reportes/general.txt");
-
-        function diferenciaHoraReporte(string $time, string $day) : bool {
-            [$h,$m,$s] = explode(":", $time);
-            [$d,$mo,$y] = explode("/", $day);
-
-            $time = mktime(intval($h+3), intval($m), intval($s), intval($mo), intval($d), intval($y));
-            $timeDifference = (time() - $time) / 60; // Diferencia en minutos
-            return $timeDifference > 60; // Paso mas de una hora sin reportar
-        }
+        $generalTxt = file("http://relevar.com.ar/datos/riego/$carpeta/reportes/general.txt");
 
         $estaRegando = 0;
         $noEstaRegando = 0;
@@ -59,7 +58,7 @@ class TxtController extends Controller {
         $noEstaReportando = 0;
         $estaEncendido = 0;
         $noEstaEncendido = 0;
-        foreach($general as &$data) {
+        foreach($generalTxt as &$data) {
             $data = explode(",", $data);
             if(!isset($data[1])) {
                 continue;
@@ -88,8 +87,6 @@ class TxtController extends Controller {
             }
         }
 
-        // Reporte reciente
-
         $fullObj = (object) array();
         $fullObj->estaReportando = $estaReportando;
         $fullObj->noEstaReportando = $noEstaReportando;
@@ -101,100 +98,31 @@ class TxtController extends Controller {
         echo json_encode($fullObj);
     }
 
-    public function parsearGraficos2($carpeta) {
-        $general = file("http://relevar.com.ar/datos/riego/$carpeta/reportes/general.txt");
-        //$general = file("../general.txt");
-        function diferenciaHoraReporte(string $time, string $day) : bool {
-            [$h,$m,$s] = explode(":", $time);
-            [$d,$mo,$y] = explode("/", $day);
-
-            $time = mktime(intval($h+3), intval($m), intval($s), intval($mo), intval($d), intval($y));
-            $timeDifference = (time() - $time) / 60; // Diferencia en minutos
-            return $timeDifference > 60; // Paso mas de una hora sin reportar
-        }
-
-        $fullObj = (object) array();
-        $fullObj->estaReportando = (object) array();
-        $fullObj->noEstaReportando = (object) array();
-        $fullObj->estaRegando = (object) array();
-        $fullObj->noEstaRegando = (object) array();
-        $fullObj->estaEncendido = (object) array();
-        $fullObj->noEstaEncendido = (object) array();
-
-        foreach($general as &$data) {
-            $data = explode(",", $data);
-            if(!isset($data[1])) {
-                continue;
-            }
-
-            [$id, $lat] = explode(":", $data[0]);
-            $id = "eq".$id;
-
-            $obj = (object) array();
-
-            $obj->lat = $lat;
-            $obj->lng = $data[2];
-            $obj->direction = $data[4];
-            $obj->rumbo = $data[5];
-            $obj->day = $data[6];
-            $obj->time = $data[7];
-            $obj->regando = $data[8] == "00";
-            $obj->porcentajeAvance = explode(".", $data[10])[2];
-            $obj->direccion2 = $data[12]; // FW, RV, UT
-            $obj->presion = $data[15];
-            $obj->tension = $data[16];
-            $obj->horimetro = $data[20];
-
-            if($obj->regando) {
-                $fullObj->estaRegando->$id = $obj;
-            } else {
-                $fullObj->noEstaRegando->$id = $obj;
-            }
-
-            if(diferenciaHoraReporte($obj->time, $obj->day)) {
-                $fullObj->noEstaReportando->$id = $obj;
-            } else {
-                $fullObj->estaReportando->$id = $obj;
-            }
-
-            if($obj->direction == "--" && !$obj->regando) {
-                $fullObj->noEstaEncendido->$id = $obj;
-            } else {
-                $fullObj->estaEncendido->$id = $obj;
-            }
-
-        }
-
-        echo json_encode($fullObj);
-    }
-
     public function parsearPedido(string $carpeta, string $pedido) {
-        $general = file("http://relevar.com.ar/datos/riego/$carpeta/reportes/general.txt");
-        //$general = file("../general.txt");
-        function diferenciaHoraReporte(string $time, string $day) : bool {
-            [$h,$m,$s] = explode(":", $time);
-            [$d,$mo,$y] = explode("/", $day);
+        $generalTxt = file("http://relevar.com.ar/datos/riego/$carpeta/reportes/general.txt");
+        $nombresTxt = file("http://relevar.com.ar/datos/riego/$carpeta/NROS_SMS.txt");
+        //$generalTxt = file("../generalTxt.txt");
+        $nombres = array();
 
-            $time = mktime(intval($h+3), intval($m), intval($s), intval($mo), intval($d), intval($y));
-            $timeDifference = (time() - $time) / 60; // Diferencia en minutos
-            return $timeDifference > 60; // Paso mas de una hora sin reportar
+
+        foreach($nombresTxt as &$line) {
+            $nombres[] = explode(",", $line)[0];
         }
-
 
         $fullObj = array();
 
-        foreach($general as &$data) {
+        foreach($generalTxt as &$data) {
             $data = explode(",", $data);
             if(!isset($data[1])) {
                 continue;
             }
 
             [$id, $lat] = explode(":", $data[0]);
-            $id = "eq".$id;
 
             $obj = (object) array();
 
             $obj->id = $id;
+            $obj->nombreEq = $nombres[$id-1];
             $obj->lat = $lat;
             $obj->lng = $data[2];
             $obj->direction = $data[4];
