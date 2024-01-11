@@ -3,17 +3,17 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-function diferenciaHoraReporte(string $time, string $day) : bool {
-    [$h,$m,$s] = explode(":", $time);
-    [$d,$mo,$y] = explode("/", $day);
+function diferenciaHoraReporte(string $hora, string $dia) : bool {
+    [$h,$m,$s] = explode(":", $hora);
+    [$d,$mo,$y] = explode("/", $dia);
 
-    $time = mktime(intval($h+3), intval($m), intval($s), intval($mo), intval($d), intval($y));
-    $timeDifference = (time() - $time) / 60; // Diferencia en minutos
+    $hora = mktime(intval($h+3), intval($m), intval($s), intval($mo), intval($d), intval($y));
+    $timeDifference = (time() - $hora) / 60; // Diferencia en minutos
     return $timeDifference > 60; // Paso mas de una hora sin reportar
 }
 
 class TxtController extends Controller {
-    public function parsearCompleto($carpeta) {
+    public function ultimoReporteCliente($carpeta) {
         $generalTxt = file("http://relevar.com.ar/datos/riego/$carpeta/reportes/general.txt");
         //$generalTxt = file("../generalTxt.txt");
 
@@ -34,8 +34,8 @@ class TxtController extends Controller {
             $obj->lng = $data[2];
             $obj->direction = $data[4];
             $obj->rumbo = $data[5];
-            $obj->day = $data[6];
-            $obj->time = $data[7];
+            $obj->dia = $data[6];
+            $obj->hora = $data[7];
             $obj->regando = true ? $data[8] == "00" : false;
             $obj->porcentajeAvance = explode(".", $data[10])[2];
             $obj->direccion2 = $data[12]; // FW, RV, UT
@@ -49,7 +49,7 @@ class TxtController extends Controller {
         echo json_encode($fullObj);
     }
 
-    public function parsearGraficos($carpeta) {
+    public function resumenUltimoReporteCliente($carpeta) {
         $generalTxt = file("http://relevar.com.ar/datos/riego/$carpeta/reportes/general.txt");
 
         $estaRegando = 0;
@@ -98,7 +98,7 @@ class TxtController extends Controller {
         echo json_encode($fullObj);
     }
 
-    public function parsearPedido(string $carpeta, string $pedido) {
+    public function resumenUltimoReporteClientePedido(string $carpeta, string $pedido) {
         $generalTxt = file("http://relevar.com.ar/datos/riego/$carpeta/reportes/general.txt");
         $nombresTxt = file("http://relevar.com.ar/datos/riego/$carpeta/NROS_SMS.txt");
         //$generalTxt = file("../generalTxt.txt");
@@ -127,8 +127,8 @@ class TxtController extends Controller {
             $obj->lng = $data[2];
             $obj->direction = $data[4];
             $obj->rumbo = $data[5];
-            $obj->day = $data[6];
-            $obj->time = $data[7];
+            $obj->dia = $data[6];
+            $obj->hora = $data[7];
             $obj->regando = $data[8] == "00";
             $obj->porcentajeAvance = explode(".", $data[10])[2];
             $obj->direccion2 = $data[12]; // FW, RV, UT
@@ -147,7 +147,7 @@ class TxtController extends Controller {
                     break;
                 }
                 case "reportando": {
-                    if(diferenciaHoraReporte($obj->time, $obj->day)) {
+                    if(diferenciaHoraReporte($obj->hora, $obj->dia)) {
                         $obj->stat = false;
                     } else {
                         $obj->stat = true;

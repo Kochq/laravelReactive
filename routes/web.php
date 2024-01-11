@@ -20,7 +20,11 @@ header('Access-Control-Allow-Headers: *');
 
 Route::get('/', UserController::class);
 
-Route::get('/general/{carpeta}', [TxtController::class, 'parsearCompleto']);
-Route::get('/graficos/{carpeta}', [TxtController::class, 'parsearGraficos']);
-Route::get('/graficos2/{carpeta}', [TxtController::class, 'parsearGraficos2']);
-Route::get('/graficos/{carpeta}/{pedido}', [TxtController::class, 'parsearPedido']);
+Route::get('/equipos/{carpeta}', [TxtController::class, 'ultimoReporteCliente']); // Ultimo reporte en general.txt (Todos los equipos)
+Route::get('/equipos/{carpeta}/eq/{equipo}', [TxtController::class, 'ultimoReporteEquipo']); // Ultimo reporte de {equipo}
+
+Route::get('/equipos/{carpeta}/fecha/{fecha}', [TxtController::class, 'fechaReporteCliente']); // Reporte en {fecha} (Todos los equipos)
+Route::get('/equipos/{carpeta}/fecha/eq/{equipo}/{fecha}', [TxtController::class, 'fechaReporteEquipo']); // Reporte en {fecha} de {equipo}
+
+Route::get('/equipos/{carpeta}/resumen', [TxtController::class, 'resumenUltimoReporteCliente']); // Resumen (estaRegando, estaEncendido...) (Todos los equipos)
+Route::get('/equipos/{carpeta}/resumen/{pedido}', [TxtController::class, 'resumenUltimoReporteClientePedido']); // Resumen {pedido} (Todos los equipos)
