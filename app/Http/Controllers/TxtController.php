@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 function diferenciaHoraReporte(string $hora, string $dia) : bool {
     [$h,$m,$s] = explode(":", $hora);
     [$d,$mo,$y] = explode("/", $dia);
@@ -12,36 +11,104 @@ function diferenciaHoraReporte(string $hora, string $dia) : bool {
     return $timeDifference > 60; // Paso mas de una hora sin reportar
 }
 
+function procesar_pos(string $signo, string $lat) : float {
+    if($signo == "S" || $signo = "W") {
+        $signo = -1;
+    } else {
+        $signo = 1;
+    }
+
+    $grados = floatVal(substr($lat,strpos($lat,".") - 4 , 2));
+    $minutos = floatVal(substr($lat,strpos($lat,".") - 2 , 8));
+    $decimas_de_grado = $minutos / 60;
+
+    $pos_procesada = $signo * ($grados + $decimas_de_grado);
+    $pos_procesada = substr($pos_procesada, 0, 8);
+
+    return $pos_procesada;
+}
+
 class TxtController extends Controller {
-    public function ultimoReporteCliente($carpeta) {
+    public function ultimoReporteCliente(string $carpeta) {
+        $setupTxt = file("http://relevar.com.ar/datos/riego/$carpeta/setup.txt");
+        $nrosTxt = file("http://relevar.com.ar/datos/riego/$carpeta/NROS_SMS.txt");
         $generalTxt = file("http://relevar.com.ar/datos/riego/$carpeta/reportes/general.txt");
-        //$generalTxt = file("../generalTxt.txt");
+        $generalExtTxt = file("http://relevar.com.ar/datos/riego/$carpeta/reportes/general_extremo.txt");
 
         $fullObj = (object) array();
 
-        foreach($generalTxt as &$data) {
-            $data = explode(",", $data);
-            if(!isset($data[1])) {
-                continue;
+
+        for($i=0; $i<count($generalTxt)-2; $i++) { // count($generalTxt)-2 porque hay 1 equipo de más
+            // Txt como arrays
+            $data = explode(",", $generalTxt[$i]);
+            $dataExt = explode(",", $generalExtTxt[$i]);
+            $nombreEq = explode(",", $nrosTxt[$i])[0];
+
+            [$nroEq, $latCen] = explode(":", $data[0]);
+            $latCenNS = $data[1];
+            $latExt = explode(":", $dataExt[0])[1];
+            $latExtNS = $dataExt[1];
+            $lngExt = $dataExt[2];
+            $lngExtEO = $dataExt[3];
+            $lngCen = $data[2];
+            $lngCenEO = $data[3];
+            $tipoEq = explode(",", $setupTxt[41])[$i];
+            $numTele = explode(",", $setupTxt[29])[$i];
+            $porcentajeAvance = (float) explode(".", $data[10])[2];
+            $fw = $data[12][0]; $rv = $data[12][1]; $ut = $data[12][2];
+            $dia = $data[6];
+            $hora = $data[7];
+            $id = "eq".$nroEq;
+
+            $tipoTelemetria = match($numTele) {
+                "0" => "bomba",
+                "2", "3" => "standard",
+                "4" => "full",
+                "5" => "alarma",
+            };
+
+            if($fw == "1") {
+                $direccion = "FW";
+                $texto = "En forward al " . $porcentajeAvance . "%";
+            } else if($rv == "1") {
+                $direccion = "RV";
+                $texto = "En reversa al " . $porcentajeAvance . "%";
+            } else {
+                $direccion = null;
+                $texto = "Detenido";
             }
 
-            [$id, $lat] = explode(":", $data[0]);
-            $id = "eq".$id;
+            if($tipoEq == "B") {
+                if($ut == "1") {
+                    $texto = "Bomba encendida";
+                } else {
+                    $texto = "Bomba apagada";
+                }
+            }
+
+            $diferenciaReporte = diferenciaHoraReporte($hora, $dia);
 
             $obj = (object) array();
 
-            $obj->lat = $lat;
-            $obj->lng = $data[2];
-            $obj->direction = $data[4];
-            $obj->rumbo = $data[5];
-            $obj->dia = $data[6];
-            $obj->hora = $data[7];
+            $obj->nombre = $nombreEq;
+            $obj->texto = $texto;
+            $obj->latCen = procesar_pos($latCenNS, $latCen);
+            $obj->latExt = procesar_pos($latExtNS, $latExt);
+            $obj->lngCen = procesar_pos($lngCenEO, $lngCen);
+            $obj->lngExt = procesar_pos($lngExtEO, $lngExt);
+            $obj->tipoEq = $tipoEq;
+            $obj->tipoTele = $tipoTelemetria;
+            $obj->direccion = $direccion;
+            $obj->rumbo = (float) $data[5];
+            $obj->nroEq = (float) $nroEq;
+            $obj->dia = $dia;
+            $obj->hora = $hora;
+            $obj->reportando = !$diferenciaReporte;
             $obj->regando = true ? $data[8] == "00" : false;
-            $obj->porcentajeAvance = explode(".", $data[10])[2];
-            $obj->direccion2 = $data[12]; // FW, RV, UT
-            $obj->presion = $data[15];
-            $obj->tension = $data[16];
-            $obj->horimetro = $data[20];
+            $obj->porcentajeAvance = $porcentajeAvance;
+            $obj->presion = (float) $data[15];
+            $obj->tension = (float) $data[16];
+            $obj->horimetro = (float) $data[20];
 
             $fullObj->$id = $obj;
         }
@@ -49,7 +116,7 @@ class TxtController extends Controller {
         echo json_encode($fullObj);
     }
 
-    public function resumenUltimoReporteCliente($carpeta) {
+    public function resumenUltimoReporteCliente(string $carpeta) {
         $generalTxt = file("http://relevar.com.ar/datos/riego/$carpeta/reportes/general.txt");
 
         $estaRegando = 0;
